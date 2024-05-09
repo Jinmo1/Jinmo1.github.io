@@ -115,7 +115,7 @@ analytics:
 author:
   name             : "TeddyNote(찬우Note)"
   avatar           : # path of avatar image, e.g. "/assets/images/bio-photo.jpg"
-  bio              : "IT를 공부하는 Passion Man 입니다."
+  bio              : "IT Infra, Cloud, Datqabase에 관심을 가지고 공부를 하고 있으며 기업이 어떤 환경에서 서비스를 제공하는 것이 좋을지를 찾고 있습니다.."
   location         : "서울"
   email            : "dbajjang@naver.com"
   links:
@@ -242,7 +242,7 @@ pagination:
   # enabled: true
   debug: false
   collection: 'posts'
-  per_page: 10
+  per_page: 5
   permalink: '/page/:num/'
   title: ':title - page :num'
   limit: 0

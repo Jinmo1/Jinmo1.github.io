@@ -1,0 +1,141 @@
+> 옵티마이저
+
+옵티마이저는 시스템 및 오브젝트(table,index등) 통계 정보를 바탕으로 다양한 실행 경로를 생성하고 비교한 후 효율적인 것을 하나 선택(SQL 수행을 위한 최적의 실행계획을 생성) 합니다. 옵티마이저의 최적화 단계는 간단하게 아래와 같은 순서로 이루어져 있습니다.
+
+> SQL 옵티마이저는 사용자가 원하는 작업을 가장 효율적으로 수행할 수 있도록 최적의 데이터 액세스 경로를 선택해 주는 DBMS의 핵심엔진이다.
+
+1. 사용자로부터 전달 받은 쿼리를 수행하는데 사용될 후보군인 실행 계획들을 찾는다.
+2. 데이터 딕셔너리에 미리 수집한 통계정보를 이용해서 각 실행 계획의 예상비용을 산정한다.
+3. 최저 비용(cost)을 나타내는 실행 계획을 선택한다.
+
+
+
+옵티마이저란 사람으로 생각하면 두뇌에 해당하는 부분 이며 SQL을 위한 최적의 실행계획을 생성하는 알고리즘 이다. 옵티마이저의 종류에는 크게 두가지
+
+### Rule Base Optimizer(RBO) , Cost Base Optimizer(CBO)
+
+<img src="C:\Users\황혜림(Wi-Fi)\Documents\GitHub\Cloud\jinmo1.github.io\images\Oracle_옵티마이저\CBO RBO_1.JPG" alt="CBO RBO_1" style="zoom: 50%;" /><img src="C:\Users\황혜림(Wi-Fi)\Documents\GitHub\Cloud\jinmo1.github.io\images\Oracle_옵티마이저\optimiger_4.JPG" alt="optimiger_4" style="zoom: 80%;" />
+
+--Rule Base옵티마이저의 우선순위
+
+``` markdown
+1)ROWID 를 통한 Table Access
+2)Unique Index를 통한 Table Access
+3)Index를 통한 Table Access
+4)Full Scan를 톻한 Table Access
+```
+
+--Rule Base옵티마이저의 장점 ==> SQL을 작성한 개발자의 의도대로 실행계획을 생성할 수 있다.
+
+
+
+--Cost Base옵티마이저
+
+비용(Cost값)을 산정해서 실행계획을 생성하는 방식, 해당 Object(Table/Index)에  Analyze를 수행하여통계 데이터를 수집해 놓아야 사용가능한 방식이다.
+
+Cost Base옵티마이저는 분포도 및 실제 데이타의 통계치를 가지고 실행계획(Execution Plan)을 생성하기 때문에 데이타베이스 마이그레이션(Migration)등의 작업 후에는 통계치 값이 달라져 마이그레이션 전과의 실행계획이 달라져 문제가 발생할수 있음
+
+--Cost Base 옵티마이저 종류 
+
+1) First Rows : 어떻게 하면 결과 값 집합중 첫 번째 Row를 빠르게 추출하는 것이 목적
+
+    ```mssql
+    예) select * from emp;
+    ```
+
+   
+
+2) All Rows : 빠른시간내에 원하는 모든 대상 집합을 추출할수 있도록 실행 계획을 생성  
+
+```mysql
+예) select count(*) from emp;
+```
+
+
+
+통계정보 (Analyze Info)
+
+<img src="C:\Users\황혜림(Wi-Fi)\Documents\GitHub\Cloud\jinmo1.github.io\images\Oracle_옵티마이저\oracle 통계정보1.JPG" alt="oracle 통계정보1" style="zoom: 50%;" />
+
+
+
+> 실행계획 (Execution Plan)
+
+실행계획(Execution Plan)은 SQL Plus에서 AutoTrace를 활성화하고 SQL을 실행하면 확인할 수 있습니다. 쿼리박스와 같은 툴을 사용하고 있다면, SQL을 선택하고 CTRL+E 단축키를 누르면 확인할 수 있습니다.
+
+실습 예제를 위해서 아래 study 테이블과 인덱스를 생성합니다.
+
+--CTAS로 테이블 생성 
+
+```mysql
+select * from scott.emp; 
+create table study 
+as 
+select d.no, e.* 
+from scott.emp e 
+     ,(select rownum no from dual connect by level <=1000) d;
+
+-- 인덱스 생성 
+create index t_emp_index_x01 on study(deptno, no);
+create index t_emp_index_x02 on study(deptno, job, no);
+
+-- study 테이블에 통계정보를 수집하는 명령어 exec
+dbms_stats.gather_table_stats(user,'study');
+```
+
+<img src="C:\Users\황혜림(Wi-Fi)\Documents\GitHub\Cloud\jinmo1.github.io\images\optimiger_1.JPG" alt="optimiger_1" style="zoom: 80%;" />
+
+실행 계획을 살펴보면 'STUDY_INDEX_X01' 인덱스를 선택. 옵티마이저가 해당 인덱스를 선택한 이유는 Cost 값이 가장 낮기 때문. 
+
+다른 인덱스 또는 테이블 Full Scan을 하게 되면, Cost 값이 더 크다는 것을 아래 이미지를 통해 확인할 수 있음
+
+옵티마이저가 'study_index_x02' 인덱스를 사용하도록 index 힌트를 지정하고 다시 실행 계획을 확인. 이번에는 Cost 값이 11입니다.
+
+```mssql
+-- 인덱스 study_index_x02 사용하도록 힌트
+select /*+ index(study study_index_x02) */ *  
+from study
+where deptno = 10
+and no = 1;
+```
+
+<img src="C:\Users\황혜림(Wi-Fi)\Documents\GitHub\Cloud\jinmo1.github.io\images\optimiger_2.JPG" alt="optimiger_2" style="zoom:80%;" />
+
+이번에는 Table Full Scan 하도록 힌트를 지정하고 실행 계획을 확인. 이번에는 Cost 값이 27인 것을 아래 이미지를 통해 확인할 수  있음
+
+```-- 인덱스 study_index_x02 사용하도록 힌트
+select /*+ full(study) */ *  
+from study
+where deptno = 10
+and no = 1;
+```
+
+<img src="C:\Users\황혜림(Wi-Fi)\Documents\GitHub\Cloud\jinmo1.github.io\images\optimiger_3.JPG" alt="optimiger_3" style="zoom:80%;" />
+
+
+
+인덱스와 테이블 Full 스캔한 결과를 보면, 옵티마이저가 선택한 실행계획은 Cost(비용)을 근거로 결정했다는 것을 알 수 있으며,  비용(Cost)은 쿼리를 수행하는 동안 발생할 것으로 예상하는 I/O 횟수 또는 예상 소요시간을 표현한 값이다.
+
+실행계획은 통계 자료 값을 기반으로 옵티마이저가 선택한 예상치임, 그렇기 때문에 실제 수행할 때 발생하는 I/O 또는 시간은 차이가 날 수 있으며, 결과도 다를 수 있음.
+
+> 옵티마이저 힌트
+
+옵티마이저가 대부분 좋은 선택을 해서 가장 효율적인 실행계획을 알려줄 수 있지만, SQL이 복잡할수록 실수할 가능성도 크다. 그리고 옵티마이저 보다 실제 운영하는 개발자가 업무 특성을 고려하여 더 효율적인 액세스 경로를 찾아낼 수 있습니다. 이럴 때 옵티마이저 힌트를 사용해서 데이터 액세스 경로를 바꿀 수 있다.  옵티마이저 힌트 사용법은 주석 기호에 '+'를 붙이면 됨
+
+```mysql
+SELECT/*+ INDEX(A 이름_PK) */EMPNO,ENAME,JOBFROMEMPAWHEREDEPTNO='10';
+```
+
+
+
+**옵티마이저 힌트(그냥 Hint) 주의사항**
+
+1. 힌트 안에 인자를 나열할 때 ','(콤마)를 사용할 수 있지만, 힌트와 힌트 사이에는 사용하면 안됩니다.
+2. 테이블을 지정할 때 스키마명까지 명시하면 안됩니다.
+3. FROM 절 테이블 명에 Alias(별명)을 지정했다면, 힌트에도 반드시 Alias를 사용해야 합니다.
+
+> 옵티마이저 힌트 종류
+
+옵티마이저 힌트 종류는 많기 때문에 다 설명하기는 어렵습니다. 분류에 따라 최적화 목표, 액세스 방식, 조인순서, 조인방식, 서브쿼리 팩토리 등이 있습니다.
+
+<img src="C:\Users\황혜림(Wi-Fi)\Documents\GitHub\Cloud\jinmo1.github.io\images\hint표1.JPG" alt="hint표1" style="zoom:80%;" />
